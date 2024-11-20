@@ -15,7 +15,21 @@ import PIL.Image
 from dotenv import load_dotenv
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Configure generative AI
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+generation_config = {
+  "temperature": 1,
+  "top_p": 0.95,
+  "top_k": 40,
+  "max_output_tokens": 8192,
+  "response_mime_type": "text/plain",
+}
+
+model = genai.GenerativeModel(
+  model_name="gemini-1.5-pro-002",
+  generation_config=generation_config,
+)
 
 output_dir = 'saliency_maps'
 os.makedirs(output_dir, exist_ok=True)
@@ -91,9 +105,17 @@ def generate_explanation(img_path, model_prediction, confidence):
     """
 
     img = PIL.Image.open(img_path)
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
     
-    initial_response = model.generate_content([initial_prompt, img]).text
+    chat_session = model.start_chat(
+      history=[
+        {
+          "role": "user",
+          "parts": [initial_prompt],
+        }
+      ]
+    )
+
+    initial_response = chat_session.send_message("INSERT_INPUT_HERE").text
     
     refinement_prompt = f"""Based on the following expert analysis of the saliency map:
     
@@ -116,7 +138,7 @@ def generate_explanation(img_path, model_prediction, confidence):
     Think through each part step by step and verify each step to ensure clarity, accuracy, and relevance.
     """
 
-    refined_response = model.generate_content([refinement_prompt, img]).text
+    refined_response = chat_session.send_message(refinement_prompt).text
     
     return refined_response
 
