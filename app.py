@@ -18,17 +18,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure generative AI
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-generation_config = {
-    "temperature": 1,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
-}
+genai_api_key = os.getenv("GEMINI_API_KEY")
+if not genai_api_key:
+    st.error("GEMINI_API_KEY not found. Please set it in the .env file.")
+    st.stop()
 
 try:
+    genai.configure(api_key=genai_api_key)
+    generation_config = {
+        "temperature": 1,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+        "response_mime_type": "text/plain",
+    }
     genai_model = genai.GenerativeModel(
         model_name="gemini-1.5-pro-002",
         generation_config=generation_config,
@@ -41,8 +44,9 @@ except Exception as e:
 output_dir = 'saliency_maps'
 os.makedirs(output_dir, exist_ok=True)
 
-if not os.path.exists("public/samples"):
-    os.makedirs("public/samples", exist_ok=True)
+samples_dir = "public/samples"
+if not os.path.exists(samples_dir):
+    os.makedirs(samples_dir, exist_ok=True)
 
 def load_sample_images(folder_path="public/samples"):
     """Load sample images from the public folder"""
@@ -79,21 +83,24 @@ def create_sample_gallery():
     for idx, img_data in enumerate(sample_images):
         col = cols[idx % 4]
         with col:
-            img = PIL.Image.open(img_data['path'])
-            img.thumbnail((200, 200))
-            
-            if st.button(
-                label="",
-                key=f"sample_{idx}",
-                help=f"Click to analyze {img_data['name']}",
-            ):
-                st.session_state.selected_image = img_data['path']
-            
-            st.image(
-                img,
-                caption=img_data['name'].split('.')[0],
-                use_column_width=True
-            )
+            try:
+                img = PIL.Image.open(img_data['path'])
+                img.thumbnail((200, 200))
+                
+                if st.button(
+                    label="",
+                    key=f"sample_{idx}",
+                    help=f"Click to analyze {img_data['name']}",
+                ):
+                    st.session_state.selected_image = img_data['path']
+                
+                st.image(
+                    img,
+                    caption=img_data['name'].split('.')[0],
+                    use_column_width=True
+                )
+            except Exception as e:
+                st.error(f"Error loading image {img_data['name']}: {e}")
     
     return st.session_state.selected_image
 
@@ -111,7 +118,25 @@ In your final response:
 Let's think step by step about this. Verify step by step.
 """
 
-    refinement_prompt = f"""Based on the following expert analysis of the saliency map:
+    try:
+        # Start chat session with initial prompt
+        chat_session = genai_model.start_chat(
+            history=[
+                {
+                    "role": "user",
+                    "parts": [initial_prompt],
+                }
+            ]
+        )
+
+        # Send the initial prompt and get the initial response
+        initial_response = chat_session.send_message("Begin explanation.").text
+
+        if not initial_response:
+            return "No response received from the Generative AI model."
+
+        # Define the refinement prompt using initial_response
+        refinement_prompt = f"""Based on the following expert analysis of the saliency map:
 
 "{initial_response}"
 
@@ -132,31 +157,11 @@ Aim to keep each section concise yet comprehensive, ensuring a total response of
 Think through each part step by step and verify each step to ensure clarity, accuracy, and relevance.
 """
 
-    try:
-        # Start chat session with initial prompt
-        chat_session = genai_model.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": [initial_prompt],
-                }
-            ]
-        )
+        # Send the refinement prompt and get the refined response
+        refined_response = chat_session.send_message(refinement_prompt).text
 
-        # Generate initial response
-        initial_response = chat_session.send_message(initial_prompt).text
-
-        # Start chat session with refinement prompt
-        refinement_chat_session = genai_model.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": [refinement_prompt],
-                }
-            ]
-        )
-
-        refined_response = refinement_chat_session.send_message(refinement_prompt).text
+        if not refined_response:
+            return "No refined response received from the Generative AI model."
 
         return refined_response
 
@@ -285,11 +290,12 @@ if uploaded_file is not None or st.session_state.selected_image is not None:
         if classification_model is None:
             st.stop()
     else:
-        if not os.path.exists('cnn_model.h5'):
-            st.error("CNN model file 'cnn_model.h5' not found.")
+        cnn_model_path = 'cnn_model.h5'
+        if not os.path.exists(cnn_model_path):
+            st.error(f"CNN model file '{cnn_model_path}' not found.")
             st.stop()
         try:
-            classification_model = load_model('cnn_model.h5')
+            classification_model = load_model(cnn_model_path)
             img_size = (224, 224)
         except Exception as e:
             st.error(f"Error loading Custom CNN model: {e}")
@@ -368,7 +374,7 @@ if uploaded_file is not None or st.session_state.selected_image is not None:
                 <div style="width: 2px; height: 80px; background-color: #ffffff; margin: 0 20px;"></div>
                 <div style="flex=1; text-align: center;">
                     <h3 style="color: #ffffff; margin-bottom: 10px; font-size: 20px;">Confidence</h3>
-                    <p style="font-size: 36px; font-weight: 800; color: #2196F3; margin 0;">
+                    <p style="font-size: 36px; font-weight: 800; color: #2196F3; margin: 0;">
                         {prediction[0][class_index]:.4%}
                     </p>
                 </div>
