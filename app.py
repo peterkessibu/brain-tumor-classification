@@ -281,7 +281,7 @@ if uploaded_file is not None or st.session_state.selected_image is not None:
 
     selected_model = st.radio(
         "Select Model",
-        ("Transfer Learning - Xception", "Custom CNN")
+        ("Custom CNN","Transfer Learning - Xception")
     )
 
     if selected_model == "Transfer Learning - Xception":
