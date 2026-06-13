@@ -6,7 +6,7 @@ from config/, models/, services/, and ui/. No business logic lives here.
 """
 import streamlit as st
 
-from config import LABELS, get_genai_model
+from config import LABELS, get_genai_client
 from models import MODEL_REGISTRY
 from services.image_service import load_and_preprocess
 from services.saliency_service import generate_saliency_map
@@ -21,9 +21,9 @@ st.set_page_config(page_title="Brain Tumor Classification", layout="wide")
 st.title("Brain Tumor Classification")
 
 # ── Dependency injection ────────────────────────────────────────────────────
-# get_genai_model() handles error/stop internally; ExplanationService
-# receives the model object — it never reaches out to global state.
-explanation_service = ExplanationService(genai_model=get_genai_model())
+# get_genai_client() handles error/stop internally; ExplanationService
+# receives the client object — it never reaches out to global state.
+explanation_service = ExplanationService(genai_client=get_genai_client())
 
 # ── Sample gallery ─────────────────────────────────────────────────────────
 render_gallery()

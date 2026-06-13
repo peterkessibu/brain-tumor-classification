@@ -4,7 +4,7 @@ config.py — Single source of truth for all constants, paths, and env setup.
 import os
 from pathlib import Path
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,28 +33,26 @@ GENERATION_CONFIG = {
     "top_p": 0.95,
     "top_k": 40,
     "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
 }
-GEMINI_MODEL_NAME = "gemini-3.1"
+GEMINI_MODEL_NAME = "gemini-2.0-flash"
 
 
-def get_genai_model() -> genai.GenerativeModel:
+def get_genai_client() -> genai.Client:
     """
-    Initialise and return the Gemini GenerativeModel.
+    Initialise and return the Gemini Client.
     Calls st.stop() if the API key is missing or init fails,
     so callers never receive None.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        st.error("GEMINI_API_KEY not found. Please set it in the .env file.")
+        api_key = st.secrets.get("GEMINI_API_KEY", None)
+    
+    if not api_key:
+        st.error("GEMINI_API_KEY not found. Please set it in the .env file or Streamlit secrets.")
         st.stop()
 
     try:
-        genai.configure(api_key=api_key)
-        return genai.GenerativeModel(
-            model_name=GEMINI_MODEL_NAME,
-            generation_config=GENERATION_CONFIG,
-        )
+        return genai.Client(api_key=api_key)
     except Exception as exc:
-        st.error(f"Failed to initialise Generative AI model: {exc}")
+        st.error(f"Failed to initialise Generative AI client: {exc}")
         st.stop()

@@ -1,9 +1,8 @@
 streamlit
-tf-nightly-cpu
+tensorflow==2.16.2
 numpy
 plotly
 pillow
-google-generativeai
+google-genai
 python-dotenv
 opencv-python-headless==4.8.1.78
-python-multipart

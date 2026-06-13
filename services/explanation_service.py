@@ -3,9 +3,11 @@ services/explanation_service.py — Gemini AI explanation generator.
 
 SRP  : builds prompts and calls the API — nothing else.
 ISP  : private methods for prompt building keep the public interface minimal.
-DIP  : the genai model is injected, never instantiated internally.
+DIP  : the genai client is injected, never instantiated internally.
 """
-import google.generativeai as genai
+from google import genai
+
+from config import GEMINI_MODEL_NAME, GENERATION_CONFIG
 
 
 class ExplanationService:
@@ -15,12 +17,12 @@ class ExplanationService:
 
     Parameters
     ----------
-    genai_model : genai.GenerativeModel
-        An already-configured GenerativeModel instance (injected by app.py).
+    genai_client : genai.Client
+        An already-configured Client instance (injected by app.py).
     """
 
-    def __init__(self, genai_model: genai.GenerativeModel) -> None:
-        self._model = genai_model
+    def __init__(self, genai_client: genai.Client) -> None:
+        self._client = genai_client
 
     # ── Public API ─────────────────────────────────────────────────────────
 
@@ -41,19 +43,22 @@ class ExplanationService:
         """
         try:
             initial_prompt = self._build_initial_prompt(prediction, confidence)
-            chat = self._model.start_chat(
-                history=[{"role": "user", "parts": [initial_prompt]}]
+            
+            chat = self._client.chats.create(
+                model=GEMINI_MODEL_NAME,
+                config=GENERATION_CONFIG,
             )
-            initial_response = chat.send_message("Begin explanation.").text
-            if not initial_response:
+            
+            initial_response = chat.send_message(initial_prompt)
+            if not initial_response.text:
                 return "No response received from the Generative AI model."
 
-            refinement_prompt = self._build_refinement_prompt(initial_response)
-            refined_response = chat.send_message(refinement_prompt).text
-            if not refined_response:
+            refinement_prompt = self._build_refinement_prompt(initial_response.text)
+            refined_response = chat.send_message(refinement_prompt)
+            if not refined_response.text:
                 return "No refined response received from the Generative AI model."
 
-            return refined_response
+            return refined_response.text
 
         except Exception as exc:
             return f"Error generating explanation: {exc}"
