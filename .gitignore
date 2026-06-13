@@ -1,0 +1,26 @@
+# Environment
+.env*
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large model weights (stored in Git LFS or externally)
+*.h5
+*.weights.h5
+
+# Generated saliency maps
+saliency_maps/
+
+# IDE
+.vscode/
+.idea/
+
+venv
