@@ -1,11 +1,9 @@
 streamlit
-tensorflow
+tensorflow==2.16.2
 numpy
 plotly
 pillow
 google-generativeai
 python-dotenv
-keras
 opencv-python-headless==4.8.1.78
 python-multipart
---extra-index-url https://download.pytorch.org/whl/cpu
