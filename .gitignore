@@ -12,10 +12,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Large model weights (stored in Git LFS or externally)
-*.h5
-*.weights.h5
-
 # Generated saliency maps
 saliency_maps/
 
