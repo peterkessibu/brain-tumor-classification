@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import streamlit as st
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,13 +29,18 @@ IMG_SHAPE_XCEPTION = (299, 299, 3)
 LABELS = ["Glioma", "Meningioma", "No tumor", "Pituitary"]
 
 # ── Gemini generation config ───────────────────────────────────────────────
-GENERATION_CONFIG = {
-    "temperature": 1,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8192,
-}
-GEMINI_MODEL_NAME = "gemini-2.0-flash"
+GEMINI_MODEL_NAME = "gemini-flash-latest"
+
+
+def get_generate_content_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_level="HIGH",
+        ),
+        tools=[
+            types.Tool(google_search=types.GoogleSearch()),
+        ],
+    )
 
 
 def get_genai_client() -> genai.Client:
@@ -46,7 +52,7 @@ def get_genai_client() -> genai.Client:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         api_key = st.secrets.get("GEMINI_API_KEY", None)
-    
+
     if not api_key:
         st.error("GEMINI_API_KEY not found. Please set it in the .env file or Streamlit secrets.")
         st.stop()

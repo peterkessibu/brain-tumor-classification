@@ -6,14 +6,15 @@ ISP  : private methods for prompt building keep the public interface minimal.
 DIP  : the genai client is injected, never instantiated internally.
 """
 from google import genai
+from google.genai import types
 
-from config import GEMINI_MODEL_NAME, GENERATION_CONFIG
+from config import GEMINI_MODEL_NAME, get_generate_content_config
 
 
 class ExplanationService:
     """
     Generates structured medical explanations for brain-tumour saliency maps
-    using a two-turn Gemini chat session.
+    using a two-turn Gemini streaming session.
 
     Parameters
     ----------
@@ -23,12 +24,13 @@ class ExplanationService:
 
     def __init__(self, genai_client: genai.Client) -> None:
         self._client = genai_client
+        self._config = get_generate_content_config()
 
     # ── Public API ─────────────────────────────────────────────────────────
 
     def explain(self, img_path: str, prediction: str, confidence: float) -> str:
         """
-        Run a two-turn Gemini chat to produce a refined medical report.
+        Run a two-turn Gemini stream to produce a refined medical report.
 
         Parameters
         ----------
@@ -43,27 +45,40 @@ class ExplanationService:
         """
         try:
             initial_prompt = self._build_initial_prompt(prediction, confidence)
-            
-            chat = self._client.chats.create(
-                model=GEMINI_MODEL_NAME,
-                config=GENERATION_CONFIG,
-            )
-            
-            initial_response = chat.send_message(initial_prompt)
-            if not initial_response.text:
+            initial_response = self._stream_response(initial_prompt)
+            if not initial_response:
                 return "No response received from the Generative AI model."
 
-            refinement_prompt = self._build_refinement_prompt(initial_response.text)
-            refined_response = chat.send_message(refinement_prompt)
-            if not refined_response.text:
+            refinement_prompt = self._build_refinement_prompt(initial_response)
+            refined_response = self._stream_response(refinement_prompt)
+            if not refined_response:
                 return "No refined response received from the Generative AI model."
 
-            return refined_response.text
+            return refined_response
 
         except Exception as exc:
             return f"Error generating explanation: {exc}"
 
     # ── Private helpers ────────────────────────────────────────────────────
+
+    def _stream_response(self, prompt: str) -> str:
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=prompt),
+                ],
+            ),
+        ]
+        chunks: list[str] = []
+        for chunk in self._client.models.generate_content_stream(
+            model=GEMINI_MODEL_NAME,
+            contents=contents,
+            config=self._config,
+        ):
+            if text := chunk.text:
+                chunks.append(text)
+        return "".join(chunks)
 
     def _build_initial_prompt(self, prediction: str, confidence: float) -> str:
         return f"""You are an expert neurologist. You are tasked with explaining a saliency map \
